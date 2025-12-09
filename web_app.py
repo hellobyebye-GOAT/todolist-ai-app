@@ -1,4 +1,4 @@
-import streamlit as st
+\import streamlit as st
 import streamlit_authenticator as stauth
 import openai
 import sqlite3
@@ -14,26 +14,32 @@ hashed_passwords = [
     'pbkdf2:sha256:260000$WmZK1XkUuKJvJm$e3f6d5c9e5f4a9d6e7f4b9c6e8f4d9c6e7f4b9c6e8f4d9c6e7f4b9c6e8f4d9c6'
 ]
 
-config = {
-    'credentials': {
-        'usernames': {
-            'demo': {
-                'name': 'Demo User',
-                'password': hashed_passwords[0]
-            }
+credentials = {
+    "usernames": {
+        "demo": {
+            "email": "demo@example.com",
+            "name": "Demo User",
+            "password": hashed_passwords[0]
         }
-    },
-    'cookie': {
-        'name': 'todo_app',
-        'key': 'abcdef',
-        'expiry_days': 30
-    },
-    'preauthorized': {
-        'emails': []
     }
 }
 
-authenticator = stauth.Authenticate(config)
+cookie = {
+    "name": "todo_app",
+    "key": "abcdef",
+    "expiry_days": 30
+}
+
+preauthorized = {
+    "emails": []
+}
+
+authenticator = stauth.Authenticate(
+    credentials=credentials,
+    cookie=cookie,
+    preauthorized=preauthorized
+)
+
 name, authentication_status, username = authenticator.login("Login", "main")
 
 if authentication_status is False:
