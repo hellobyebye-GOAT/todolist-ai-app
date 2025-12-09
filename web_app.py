@@ -1,27 +1,36 @@
 import streamlit as st
-from streamlit_authenticator import Authenticate
+import streamlit_authenticator as stauth
 import openai
 import sqlite3
 from datetime import datetime
 
-# --- Google Sign-In Placeholder ---
+# --- Page Setup ---
 st.set_page_config(page_title="AI To-Do List", layout="centered")
 st.title("🧠 AI-Powered To-Do List")
 
 # --- User Authentication ---
-names = ["Demo User"]
-usernames = ["demo"]
-passwords = ["demo123"]
-authenticator = Authenticate(
-    names,
-    usernames,
-    passwords,
-    "todo_app",
-    "abcdef",
-    cookie_expiry_days=30
-)
+config = {
+    'credentials': {
+        'usernames': {
+            'demo': {
+                'name': 'Demo User',
+                'password': stauth.Hasher(['demo123']).generate()[0]
+            }
+        }
+    },
+    'cookie': {
+        'name': 'todo_app',
+        'key': 'abcdef',
+        'expiry_days': 30
+    },
+    'preauthorized': {
+        'emails': []
+    }
+}
 
+authenticator = stauth.Authenticate(config)
 name, authentication_status, username = authenticator.login("Login", "main")
+
 if authentication_status is False:
     st.error("Invalid credentials")
 elif authentication_status is None:
@@ -41,7 +50,6 @@ elif authentication_status:
     task_input = st.text_input("Describe your task in natural language:")
     if st.button("Add Task"):
         if task_input:
-            # --- AI Parsing Placeholder ---
             parsed_task = task_input
             due_date = datetime.now().strftime("%Y-%m-%d")
             c.execute("INSERT INTO tasks VALUES (?, ?, ?, ?)", (username, parsed_task, due_date, "pending"))
@@ -53,5 +61,4 @@ elif authentication_status:
     c.execute("SELECT task, due, status FROM tasks WHERE user=?", (username,))
     rows = c.fetchall()
     for row in rows:
-
         st.write(f"📝 {row[0]} — Due: {row[1]} — Status: {row[2]}")
