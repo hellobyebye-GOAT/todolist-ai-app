@@ -12,7 +12,14 @@ st.title("🧠 AI-Powered To-Do List")
 names = ["Demo User"]
 usernames = ["demo"]
 passwords = ["demo123"]
-authenticator = Authenticate(names, usernames, passwords, "todo_app", "abcdef", cookie_expiry_days=30)
+authenticator = Authenticate(
+    names,
+    usernames,
+    passwords,
+    "todo_app",
+    "abcdef",
+    cookie_expiry_days=30
+)
 
 name, authentication_status, username = authenticator.login("Login", "main")
 if authentication_status is False:
@@ -46,4 +53,5 @@ elif authentication_status:
     c.execute("SELECT task, due, status FROM tasks WHERE user=?", (username,))
     rows = c.fetchall()
     for row in rows:
+
         st.write(f"📝 {row[0]} — Due: {row[1]} — Status: {row[2]}")
