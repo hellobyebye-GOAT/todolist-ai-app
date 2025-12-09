@@ -35,7 +35,7 @@ authenticator = stauth.Authenticate(
     preauthorized=preauthorized
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login", "sidebar")
 
 if authentication_status is False:
     st.error("Invalid credentials")
