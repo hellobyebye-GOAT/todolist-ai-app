@@ -9,17 +9,12 @@ st.set_page_config(page_title="AI To-Do List", layout="centered")
 st.title("🧠 AI-Powered To-Do List")
 
 # --- User Authentication ---
-# Pre-hashed password for 'demo123'
-hashed_passwords = [
-    'pbkdf2:sha256:260000$WmZK1XkUuKJvJm$e3f6d5c9e5f4a9d6e7f4b9c6e8f4d9c6e7f4b9c6e8f4d9c6e7f4b9c6e8f4d9c6'
-]
-
 credentials = {
     "usernames": {
         "demo": {
             "email": "demo@example.com",
             "name": "Demo User",
-            "password": hashed_passwords[0]
+            "password": "demo123"  # Plaintext for testing only
         }
     }
 }
