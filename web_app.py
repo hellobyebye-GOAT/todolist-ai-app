@@ -9,12 +9,15 @@ st.set_page_config(page_title="AI To-Do List", layout="centered")
 st.title("🧠 AI-Powered To-Do List")
 
 # --- User Authentication ---
+# Pre-hashed password for 'demo123'
+hashed_passwords = ['pbkdf2:sha256:260000$kYvZzKzZkZKZkZ$e6b3f4d9f4e9e6d9e6f4e9e6d9e6f4e9e6d9e6f4e9e6d9e6f4e9e6d9e6f4e9']
+
 config = {
     'credentials': {
         'usernames': {
             'demo': {
                 'name': 'Demo User',
-                'password': stauth.Hasher(['demo123']).generate()[0]
+                'password': hashed_passwords[0]
             }
         }
     },
