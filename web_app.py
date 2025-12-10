@@ -1,4 +1,4 @@
-import streamlit as st
+\import streamlit as st
 import streamlit_authenticator as stauth
 import sqlite3
 from datetime import datetime
@@ -40,7 +40,6 @@ authenticator = stauth.Authenticate(
 try:
     name, authentication_status, username = authenticator.login("Login", "main")
 except Exception:
-    # Catch any transient KeyError or cleared state
     name, authentication_status, username = None, None, None
 
 # --- DB helpers ---
@@ -136,11 +135,14 @@ if authentication_status is False:
 elif authentication_status is None:
     st.warning("Please enter your username and password")
 elif authentication_status:
-    # Render logout only when login is stable
+    # Render logout; stop immediately after click to avoid rerun flash
     try:
         authenticator.logout("Logout", "sidebar")
-        st.stop()
     except Exception:
+        st.info("You have logged out. Please log in again.")
+        st.stop()
+
+    if st.sidebar.button("Force Logout"):
         st.info("You have logged out. Please log in again.")
         st.stop()
 
@@ -229,11 +231,4 @@ elif authentication_status:
                             if new_due_text and not new_due_iso:
                                 st.warning("Please enter the due date as DD-MM-YY (e.g., 25-12-25).")
                             else:
-                                update_task(tid, new_text.strip(), new_due_iso)
-                                st.session_state[f"editing_{tid}"] = False
-                                st.success("Task updated.")
-                                st.rerun()
-                    with ec2:
-                        if st.button("Cancel ✖️", key=f"cancel_{tid}"):
-                            st.session_state[f"editing_{tid}"] = False
-                            st.rerun()
+                                update_task(tid, new_text.strip
