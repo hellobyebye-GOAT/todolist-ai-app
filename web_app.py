@@ -139,6 +139,7 @@ elif authentication_status:
     # Render logout only when login is stable
     try:
         authenticator.logout("Logout", "sidebar")
+        st.stop()
     except Exception:
         st.info("You have logged out. Please log in again.")
         st.stop()
