@@ -150,7 +150,10 @@ elif authentication_status is None:
 elif authentication_status:
     # Logout button. If clicked, halt immediately to avoid rerun flashback.
     try:
-        authenticator.logout("Logout", "sidebar")
+        if st.sidebar.button("Logout"):
+            authenticator.logout("Logout", "sidebar")
+            st.info("You have logged out. Please log in again.")
+            st.stop()
     except Exception:
         st.info("You have logged out. Please log in again.")
         st.stop()
