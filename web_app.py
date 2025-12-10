@@ -1,39 +1,48 @@
-import streamlit as st
+\import streamlit as st
 import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 
-# Minimal credentials
-credentials = {
-    "usernames": {
-        "demo": {
-            "email": "demo@example.com",
-            "name": "Demo User",
-            "password": "demo123"
+# --- Page Setup ---
+st.set_page_config(page_title="AI To-Do List", layout="centered")
+st.title("🧠 AI-Powered To-Do List")
+
+# --- Authentication Config ---
+config = {
+    'credentials': {
+        'usernames': {
+            'demo': {
+                'email': 'demo@example.com',
+                'name': 'Demo User',
+                'password': stauth.Hasher(['demo123']).generate()[0]
+            }
         }
+    },
+    'cookie': {
+        'name': 'todo_app',
+        'key': 'abcdef',
+        'expiry_days': 30
+    },
+    'preauthorized': {
+        'emails': []
     }
 }
 
-cookie = {
-    "name": "test_app",
-    "key": "abcdef",
-    "expiry_days": 1
-}
-
-preauthorized = {
-    "emails": []
-}
-
 authenticator = stauth.Authenticate(
-    credentials=credentials,
-    cookie=cookie,
-    preauthorized=preauthorized
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
 )
 
-name, auth_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login", "main")
 
-if auth_status:
+if authentication_status is False:
+    st.error("Invalid credentials")
+elif authentication_status is None:
+    st.warning("Please enter your username and password")
+elif authentication_status:
     authenticator.logout("Logout", "sidebar")
     st.sidebar.success(f"Welcome {name}!")
-elif auth_status is False:
-    st.error("Invalid credentials")
-elif auth_status is None:
-    st.warning("Please enter your username and password")
+    st.write("🎉 You’re logged in! Ready to build your to-do list.")
