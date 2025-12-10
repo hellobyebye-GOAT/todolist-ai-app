@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 
 # --- Page Setup ---
 st.set_page_config(page_title="AI To-Do List", layout="centered", initial_sidebar_state="expanded")
@@ -36,14 +36,24 @@ authenticator = stauth.Authenticate(
     config['preauthorized']
 )
 
-# --- Login ---
+# --- Safe defaults to avoid transient KeyErrors on logout rerun ---
+st.session_state.setdefault("auth_name", None)
+st.session_state.setdefault("auth_username", None)
+st.session_state.setdefault("auth_status", None)
+
+# --- Login (guarded) ---
 try:
     name, authentication_status, username = authenticator.login("Login", "main")
+    # Cache locally in session_state to survive transient clears on rerun
+    st.session_state["auth_name"] = name
+    st.session_state["auth_username"] = username
+    st.session_state["auth_status"] = authentication_status
 except KeyError:
-    # Catch cleared state after logout
+    # If the authenticator clears keys during logout, keep UI stable
+    name = st.session_state.get("auth_name")
+    username = st.session_state.get("auth_username")
     authentication_status = None
-    name = None
-    username = None
+    st.session_state["auth_status"] = None
 
 # --- Helper: DB connection ---
 def get_conn():
@@ -59,7 +69,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT NOT NULL,
             task TEXT NOT NULL,
-            due TEXT,
+            due TEXT,                  -- store as ISO (YYYY-MM-DD) for reliability
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL
         )
@@ -67,12 +77,12 @@ def init_db():
     conn.commit()
 
 # --- CRUD operations ---
-def add_task(user, task, due):
+def add_task(user, task, due_iso):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
         "INSERT INTO tasks (user, task, due, status, created_at) VALUES (?, ?, ?, 'pending', ?)",
-        (user, task, due, datetime.now().isoformat(timespec="seconds"))
+        (user, task, due_iso, datetime.now().isoformat(timespec="seconds"))
     )
     conn.commit()
 
@@ -84,6 +94,7 @@ def list_tasks(user, sort_by="due", only_status=None):
     if only_status:
         base += " AND status=?"
         params.append(only_status)
+    # Sorting
     if sort_by == "due":
         base += " ORDER BY COALESCE(due, ''), status DESC"
     elif sort_by == "created":
@@ -107,11 +118,30 @@ def delete_task(task_id):
     c.execute("DELETE FROM tasks WHERE id=?", (task_id,))
     conn.commit()
 
-def update_task(task_id, new_text, new_due):
+def update_task(task_id, new_text, new_due_iso):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE tasks SET task=?, due=? WHERE id=?", (new_text, new_due, task_id))
+    c.execute("UPDATE tasks SET task=?, due=? WHERE id=?", (new_text, new_due_iso, task_id))
     conn.commit()
+
+# --- Date helpers (display DD-MM-YY, store ISO) ---
+def iso_to_ddmmyy(iso_str: str | None) -> str:
+    if not iso_str:
+        return "—"
+    try:
+        d = datetime.fromisoformat(iso_str).date()
+        return d.strftime("%d-%m-%y")
+    except Exception:
+        return "—"
+
+def ddmmyy_to_iso(ddmmyy: str | None) -> str | None:
+    if not ddmmyy:
+        return None
+    try:
+        d = datetime.strptime(ddmmyy, "%d-%m-%y").date()
+        return d.isoformat()
+    except Exception:
+        return None
 
 # --- UI Flow ---
 if authentication_status is False:
@@ -119,6 +149,7 @@ if authentication_status is False:
 elif authentication_status is None:
     st.warning("Please enter your username and password")
 elif authentication_status:
+    # Render logout first; if clicked, stop further processing immediately to avoid transient state access
     authenticator.logout("Logout", "sidebar")
     st.sidebar.success(f"Welcome {name}!")
     st.write("🎉 You’re logged in! Ready to build your to-do list.")
@@ -130,12 +161,13 @@ elif authentication_status:
     st.subheader("Add a task")
     with st.form("add_task_form", clear_on_submit=True):
         task_text = st.text_input("Task description", placeholder="e.g., Draft Einstein speech section")
-        due_input = st.date_input("Due date (optional)", value=None, format="YYYY-MM-DD")
+        # We keep date_input native, but display/save as DD-MM-YY externally
+        due_picker = st.date_input("Due date (optional)", value=None)
         submitted = st.form_submit_button("Add task")
         if submitted:
             if task_text.strip():
-                due_str = due_input.isoformat() if due_input else None
-                add_task(username, task_text.strip(), due_str)
+                due_iso = due_picker.isoformat() if isinstance(due_picker, date) else None
+                add_task(username, task_text.strip(), due_iso)
                 st.success("Task added.")
             else:
                 st.warning("Please enter a task description.")
@@ -157,9 +189,14 @@ elif authentication_status:
     if not tasks:
         st.caption("No tasks yet. Add your first task above.")
     else:
-        for tid, ttext, tdue, tstatus, created in tasks:
-            exp = st.expander(f"📝 {ttext} | Due: {tdue or '—'} | Status: {tstatus}", expanded=False)
+        for tid, ttext, tdue_iso, tstatus, created in tasks:
+            due_display = iso_to_ddmmyy(tdue_iso)
+            created_display = datetime.fromisoformat(created).strftime("%d-%m-%y %H:%M")
+
+            exp = st.expander(f"📝 {ttext} | Due: {due_display} | Status: {tstatus}", expanded=False)
             with exp:
+                st.caption(f"Created: {created_display}")
+
                 c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
                 with c1:
                     if tstatus != "done":
@@ -179,19 +216,29 @@ elif authentication_status:
                     if st.button("Edit ✏️", key=edit_key):
                         st.session_state[f"editing_{tid}"] = True
 
+                # Inline edit form
                 if st.session_state.get(f"editing_{tid}", False):
                     st.write("Edit task")
                     new_text = st.text_input("Task", value=ttext, key=f"txt_{tid}")
-                    new_due = st.date_input(
+                    # Show and edit due date in DD-MM-YY, store as ISO
+                    current_due_date = None
+                    if tdue_iso:
+                        try:
+                            current_due_date = datetime.fromisoformat(tdue_iso).date()
+                        except Exception:
+                            current_due_date = None
+
+                    new_due_picker = st.date_input(
                         "Due date (optional)",
-                        value=None if tdue is None or tdue == "" else datetime.fromisoformat(tdue).date(),
-                        format="YYYY-MM-DD",
+                        value=current_due_date if current_due_date else None,
                         key=f"due_{tid}"
                     )
+
                     ec1, ec2 = st.columns([1, 1])
                     with ec1:
                         if st.button("Save changes 💾", key=f"save_{tid}"):
-                            update_task(tid, new_text.strip(), new_due.isoformat() if new_due else None)
+                            new_due_iso = new_due_picker.isoformat() if isinstance(new_due_picker, date) else None
+                            update_task(tid, new_text.strip(), new_due_iso)
                             st.session_state[f"editing_{tid}"] = False
                             st.success("Task updated.")
                             st.rerun()
@@ -200,4 +247,5 @@ elif authentication_status:
                             st.session_state[f"editing_{tid}"] = False
                             st.rerun()
 else:
+    # Clean post-logout state without accessing cleared authenticator keys
     st.info("You have logged out. Please log in again.")
