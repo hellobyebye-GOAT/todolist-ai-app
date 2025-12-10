@@ -36,11 +36,22 @@ authenticator = stauth.Authenticate(
     config['preauthorized']
 )
 
-# --- Safe login wrapper ---
-try:
+# --- Safe login wrapper with logout flag ---
+if "logged_out" not in st.session_state:
+    st.session_state.logged_out = False
+
+if st.session_state.logged_out:
+    st.info("You have logged out. Please log in again.")
+    # Reset flag only when user actually logs in again
     name, authentication_status, username = authenticator.login("Login", "main")
-except Exception:
-    name, authentication_status, username = None, None, None
+    if authentication_status:
+        st.session_state.logged_out = False
+else:
+    name, authentication_status, username = authenticator.login("Login", "main")
+    if authentication_status:
+        if st.sidebar.button("Logout"):
+            st.session_state.logged_out = True
+            st.experimental_rerun()
 
 # --- DB helpers ---
 def get_conn():
