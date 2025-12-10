@@ -28,7 +28,7 @@ authenticator = stauth.Authenticate(
     preauthorized=preauthorized
 )
 
-name, auth_status, username = authenticator.login("Login", "sidebar")
+name, auth_status, username = authenticator.login("Login", "main")
 
 if auth_status:
     authenticator.logout("Logout", "sidebar")
