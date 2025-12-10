@@ -233,6 +233,6 @@ elif authentication_status:
                                 st.success("Task updated.")
                                 st.rerun()
                     with ec2:
-			if st.button("Cancel ✖️", key=f"cancel_{tid}"):
-        		st.session_state[f"editing_{tid}"] = False
-        		st.rerun()
+                        if st.button("Cancel ✖️", key=f"cancel_{tid}"):
+                            st.session_state[f"editing_{tid}"] = False
+                            st.rerun()
