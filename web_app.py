@@ -36,22 +36,11 @@ authenticator = stauth.Authenticate(
     config['preauthorized']
 )
 
-# --- Safe login wrapper with logout flag ---
-if "logged_out" not in st.session_state:
-    st.session_state.logged_out = False
-
-if st.session_state.logged_out:
-    st.info("You have logged out. Please log in again.")
-    # Reset flag only when user actually logs in again
+# --- Login ---
+try:
     name, authentication_status, username = authenticator.login("Login", "main")
-    if authentication_status:
-        st.session_state.logged_out = False
-else:
-    name, authentication_status, username = authenticator.login("Login", "main")
-    if authentication_status:
-        if st.sidebar.button("Logout"):
-            st.session_state.logged_out = True
-            st.experimental_rerun()
+except Exception:
+    name, authentication_status, username = None, None, None
 
 # --- DB helpers ---
 def get_conn():
@@ -67,7 +56,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT NOT NULL,
             task TEXT NOT NULL,
-            due TEXT,                       -- store ISO YYYY-MM-DD internally
+            due TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL
         )
@@ -141,29 +130,9 @@ def iso_to_ddmmyy(iso_str: str | None) -> str:
         return "—"
 
 # --- UI flow ---
-if authentication_status is False:
-    st.error("Invalid credentials")
-
-elif authentication_status is None:
-    st.warning("Please enter your username and password")
-
-elif authentication_status:
-    # Logout button. If clicked, halt immediately to avoid rerun flashback.
-    try:
-        if st.sidebar.button("Logout"):
-            authenticator.logout("Logout", "sidebar")
-            st.info("You have logged out. Please log in again.")
-            st.stop()
-    except Exception:
-        st.info("You have logged out. Please log in again.")
-        st.stop()
-
-    # If user clicked logout, authenticator may trigger a rerun; stop to keep UI clean.
-    if st.session_state.get("logout"):
-        st.info("You have logged out. Please log in again.")
-        st.stop()
-
-    st.sidebar.success(f"Welcome {name}!")
+if authentication_status:
+    authenticator.logout("Logout", "sidebar")
+    st.sidebar.success(f"Welcome {name}")
     st.write("🎉 You’re logged in! Ready to build your to-do list.")
 
     # Initialize DB
@@ -230,7 +199,6 @@ elif authentication_status:
                     if st.button("Edit ✏️", key=edit_key):
                         st.session_state[f"editing_{tid}"] = True
 
-                # Inline edit form
                 if st.session_state.get(f"editing_{tid}", False):
                     st.write("Edit task")
                     new_text = st.text_input("Task", value=ttext, key=f"txt_{tid}")
@@ -258,6 +226,8 @@ elif authentication_status:
                             st.session_state[f"editing_{tid}"] = False
                             st.rerun()
 
-else:
-    # Post-logout screen
-    st.info("You have logged out. Please log in again.")
+elif authentication_status is False:
+    st.error("Invalid username or password")
+
+elif authentication_status is None:
+    st.warning("Please enter your username and password")
