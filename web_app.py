@@ -7,7 +7,7 @@ from datetime import datetime
 st.set_page_config(page_title="AI To-Do List", layout="centered", initial_sidebar_state="expanded")
 st.title("🧠 AI-Powered To-Do List")
 
-# --- Auth Config (uses demo credentials) ---
+# --- Auth Config (demo credentials) ---
 config = {
     'credentials': {
         'usernames': {
@@ -28,7 +28,6 @@ config = {
     }
 }
 
-# Authenticate (API compatible with streamlit-authenticator==0.2.3)
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
@@ -37,9 +36,16 @@ authenticator = stauth.Authenticate(
     config['preauthorized']
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+# --- Login ---
+try:
+    name, authentication_status, username = authenticator.login("Login", "main")
+except KeyError:
+    # Catch cleared state after logout
+    authentication_status = None
+    name = None
+    username = None
 
-# --- Helper: DB connection (persist across reruns) ---
+# --- Helper: DB connection ---
 def get_conn():
     if "conn" not in st.session_state:
         st.session_state.conn = sqlite3.connect("tasks.db", check_same_thread=False)
@@ -60,7 +66,7 @@ def init_db():
     """)
     conn.commit()
 
-# --- Helper: CRUD operations ---
+# --- CRUD operations ---
 def add_task(user, task, due):
     conn = get_conn()
     c = conn.cursor()
@@ -78,7 +84,6 @@ def list_tasks(user, sort_by="due", only_status=None):
     if only_status:
         base += " AND status=?"
         params.append(only_status)
-    # Sorting
     if sort_by == "due":
         base += " ORDER BY COALESCE(due, ''), status DESC"
     elif sort_by == "created":
@@ -124,7 +129,7 @@ elif authentication_status:
     # --- Add Task ---
     st.subheader("Add a task")
     with st.form("add_task_form", clear_on_submit=True):
-        task_text = st.text_input("Task description", placeholder="e.g., Draft the Einstein speech section on imagination")
+        task_text = st.text_input("Task description", placeholder="e.g., Draft Einstein speech section")
         due_input = st.date_input("Due date (optional)", value=None, format="YYYY-MM-DD")
         submitted = st.form_submit_button("Add task")
         if submitted:
@@ -174,7 +179,6 @@ elif authentication_status:
                     if st.button("Edit ✏️", key=edit_key):
                         st.session_state[f"editing_{tid}"] = True
 
-                # Inline edit form
                 if st.session_state.get(f"editing_{tid}", False):
                     st.write("Edit task")
                     new_text = st.text_input("Task", value=ttext, key=f"txt_{tid}")
@@ -195,9 +199,5 @@ elif authentication_status:
                         if st.button("Cancel ✖️", key=f"cancel_{tid}"):
                             st.session_state[f"editing_{tid}"] = False
                             st.rerun()
-
-    # --- Optional: AI enhancements (placeholder hook) ---
-    # You can later plug in an LLM to parse task_text into structured fields:
-    # - Extract due dates, priority, tags
-    # - Suggest breakdown steps
-    # For now we keep it minimal and deterministic for reliability on Streamlit Cloud.
+else:
+    st.info("You have logged out. Please log in again.")
