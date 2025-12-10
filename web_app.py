@@ -1,4 +1,4 @@
-import streamlit as st
+\import streamlit as st
 import streamlit_authenticator as stauth
 import sqlite3
 from datetime import datetime
@@ -56,7 +56,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT NOT NULL,
             task TEXT NOT NULL,
-            due TEXT,
+            due TEXT,                       -- store ISO YYYY-MM-DD internally
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL
         )
@@ -132,17 +132,20 @@ def iso_to_ddmmyy(iso_str: str | None) -> str:
 # --- UI flow ---
 if authentication_status is False:
     st.error("Invalid credentials")
+
 elif authentication_status is None:
     st.warning("Please enter your username and password")
+
 elif authentication_status:
-    # Render logout; stop immediately after click to avoid rerun flash
+    # Logout button. If clicked, halt immediately to avoid rerun flashback.
     try:
         authenticator.logout("Logout", "sidebar")
     except Exception:
         st.info("You have logged out. Please log in again.")
         st.stop()
 
-    if st.sidebar.button("Force Logout"):
+    # If user clicked logout, authenticator may trigger a rerun; stop to keep UI clean.
+    if st.session_state.get("logout"):
         st.info("You have logged out. Please log in again.")
         st.stop()
 
@@ -213,6 +216,7 @@ elif authentication_status:
                     if st.button("Edit ✏️", key=edit_key):
                         st.session_state[f"editing_{tid}"] = True
 
+                # Inline edit form
                 if st.session_state.get(f"editing_{tid}", False):
                     st.write("Edit task")
                     new_text = st.text_input("Task", value=ttext, key=f"txt_{tid}")
@@ -231,4 +235,15 @@ elif authentication_status:
                             if new_due_text and not new_due_iso:
                                 st.warning("Please enter the due date as DD-MM-YY (e.g., 25-12-25).")
                             else:
-                                update_task(tid, new_text.strip
+                                update_task(tid, new_text.strip(), new_due_iso)
+                                st.session_state[f"editing_{tid}"] = False
+                                st.success("Task updated.")
+                                st.rerun()
+                    with ec2:
+                        if st.button("Cancel ❌", key=f"cancel_{tid}"):
+                            st.session_state[f"editing_{tid}"] = False
+                            st.rerun()
+
+else:
+    # Post-logout screen
+    st.info("You have logged out. Please log in again.")
